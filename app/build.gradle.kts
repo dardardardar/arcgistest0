@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId = "com.fubunyn.arcgistest0"
-        minSdk = 25
+        minSdk = 26
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -66,4 +66,9 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    // ArcGIS Map Kotlin SDK dependency
+    implementation("com.esri:arcgis-maps-kotlin:200.4.0")
+    // Toolkit dependencies
+    implementation("com.esri:arcgis-maps-kotlin-toolkit-geoview-compose:200.4.0")
 }
