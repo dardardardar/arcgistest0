@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">arcgistest0</string>
+    <string name="app_name">Go Harvest Kotlin</string>
+    <string name="mahourivieratrails_mmpk">MahouRivieraTrails.mmpk</string>
 </resources>
