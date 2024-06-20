@@ -297,7 +297,7 @@ class MainActivity : ComponentActivity() {
 
                 Column {
 
-                    Text(text = "No reg")
+                    Text(text = "No reg:")
                     Text(text = "1")
                 }
                 Spacer(modifier = Modifier.width(24.dp))
