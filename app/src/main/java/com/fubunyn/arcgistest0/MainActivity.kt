@@ -11,7 +11,9 @@ import android.content.res.Configuration
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -75,12 +77,14 @@ import androidx.core.text.isDigitsOnly
 import androidx.lifecycle.lifecycleScope
 import com.arcgismaps.ApiKey
 import com.arcgismaps.ArcGISEnvironment
+import com.arcgismaps.location.LocationDisplayAutoPanMode
 import com.arcgismaps.mapping.ArcGISMap
 import com.arcgismaps.mapping.BasemapStyle
 import com.arcgismaps.mapping.MobileMapPackage
 import com.arcgismaps.mapping.Viewpoint
 import com.arcgismaps.mapping.symbology.HorizontalAlignment
 import com.arcgismaps.toolkit.geoviewcompose.MapView
+import com.arcgismaps.toolkit.geoviewcompose.rememberLocationDisplay
 import com.fubunyn.arcgistest0.ui.theme.Arcgistest0Theme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -91,7 +95,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setApiKey()
-        requestPermissions()
+
         setContent {
             Arcgistest0Theme {
                 MainScreen()
@@ -99,29 +103,20 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun requestPermissions() {
-        // coarse location permission
-        val permissionCheckCoarseLocation =
-            ContextCompat.checkSelfPermission(this@MainActivity, ACCESS_COARSE_LOCATION) ==
-                    PackageManager.PERMISSION_GRANTED
-        // fine location permission
-        val permissionCheckFineLocation =
-            ContextCompat.checkSelfPermission(this@MainActivity, ACCESS_FINE_LOCATION) ==
-                    PackageManager.PERMISSION_GRANTED
+    fun checkPermissions(context: Context): Boolean {
+        // Check permissions to see if both permissions are granted.
+        // Coarse location permission.
+        val permissionCheckCoarseLocation = ContextCompat.checkSelfPermission(
+            context,
+            ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        // Fine location permission.
+        val permissionCheckFineLocation = ContextCompat.checkSelfPermission(
+            context,
+            ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
 
-        // if permissions are not already granted, request permission from the user
-        if (!(permissionCheckCoarseLocation && permissionCheckFineLocation)) {
-            ActivityCompat.requestPermissions(
-                this@MainActivity,
-                arrayOf(ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION),
-                2
-            )
-        } else {
-            // permission already granted, so start the location display
-            lifecycleScope.launch {
-
-            }
-        }
+        return permissionCheckCoarseLocation && permissionCheckFineLocation
     }
 
     private fun setApiKey() {
@@ -130,30 +125,94 @@ class MainActivity : ComponentActivity() {
             ApiKey.create("AAPK5d3b2261bd3c46da9e26f733d1d27eac4A7jWaJkiSwOuuLOhkiuRkNNRhAN7HOPXnu20voI17ehi_NUEnm2a4CuQIpI8iD1")
     }
 
+    @Composable
+    fun RequestPermissions(context: Context, onPermissionsGranted: () -> Unit) {
+
+        // Create an activity result launcher using permissions contract and handle the result.
+        val activityResultLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestMultiplePermissions()
+        ) { permissions ->
+            // Check if both fine & coarse location permissions are true.
+            if (permissions.all { it.value }) {
+                onPermissionsGranted()
+            } else {
+                showError(context, "Location permissions were denied")
+            }
+        }
+
+        LaunchedEffect(Unit) {
+            activityResultLauncher.launch(
+                // Request both fine and coarse location permissions.
+                arrayOf(
+                    ACCESS_COARSE_LOCATION,
+                    ACCESS_FINE_LOCATION
+                )
+            )
+        }
+
+    }
+
     @OptIn(ExperimentalMaterial3Api::class)
     @Preview(showBackground = true)
     @Composable
     fun MainScreen() {
         val context = LocalContext.current
+        val coroutineScope = rememberCoroutineScope()
+
+        ArcGISEnvironment.applicationContext = context.applicationContext
+
+        val locationDisplay = rememberLocationDisplay().apply {
+            setAutoPanMode(LocationDisplayAutoPanMode.Recenter)
+        }
         // Get the path of the mobile map package
-        val mmpkFilePath = context.getExternalFilesDir(null)?.path + File.separator + stringResource(id = R.string.mahourivieratrails_mmpk)
+        val mmpkFilePath =
+            context.getExternalFilesDir(null)?.path + File.separator + stringResource(id = R.string.mahourivieratrails_mmpk)
         val sheetState = rememberBottomSheetScaffoldState()
         val scope = rememberCoroutineScope()
         val map = remember {
             mutableStateOf(ArcGISMap(BasemapStyle.ArcGISDarkGray))
         }
-        LaunchedEffect(Unit) {
+//        if (checkPermissions(context)) {
+//            // Permissions are already granted.
+//            LaunchedEffect(Unit) {
+//                locationDisplay.dataSource.start()
+//                val mapPackage = MobileMapPackage(mmpkFilePath)
+//
+//                mapPackage.load().onSuccess {
+//                    map.value = mapPackage.maps.first()
+//                }.onFailure { error ->
+//                    showError(context, "Failed to load mobile map package: ${error.message}")
+//                }
+//            }
+//        } else {
+//
+//        }
 
-            // Load the mobile map package
-            val mapPackage = MobileMapPackage(mmpkFilePath)
-
-            mapPackage.load().onSuccess {
-                map.value = mapPackage.maps.first()
-            }.onFailure { error ->
-                showError(context, "Failed to load mobile map package: ${error.message}")
+        if (checkPermissions(context)) {
+            // Permissions are already granted.
+            LaunchedEffect(Unit) {
+                locationDisplay.dataSource.start()
+                val mapPackage = MobileMapPackage(mmpkFilePath)
+                mapPackage.load().onSuccess {
+                    map.value = mapPackage.maps.first()
+                }.onFailure { error ->
+                    showError(context, "Failed to load mobile map package: ${error.message}")
+                }
             }
+        } else {
+
+            RequestPermissions(
+                context = context,
+                onPermissionsGranted = {
+                    coroutineScope.launch {
+                        locationDisplay.dataSource.start()
+                    }
+                }
+            )
 
         }
+
+
         Scaffold(
             topBar = {
                 TopAppBar(title = { Text(text = "Maps") }, actions = {
@@ -182,7 +241,8 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(it),
-                arcGISMap = map.value
+                arcGISMap = map.value,
+                locationDisplay = locationDisplay
             )
 
 
@@ -190,6 +250,7 @@ class MainActivity : ComponentActivity() {
 
 
     }
+
     fun showError(context: Context, message: String) {
         Toast.makeText(context, message, Toast.LENGTH_LONG).show()
     }
