@@ -170,23 +170,8 @@ class MainActivity : ComponentActivity() {
         val sheetState = rememberBottomSheetScaffoldState()
         val scope = rememberCoroutineScope()
         val map = remember {
-            mutableStateOf(ArcGISMap(BasemapStyle.ArcGISDarkGray))
+            mutableStateOf(ArcGISMap(getMapStyles()))
         }
-//        if (checkPermissions(context)) {
-//            // Permissions are already granted.
-//            LaunchedEffect(Unit) {
-//                locationDisplay.dataSource.start()
-//                val mapPackage = MobileMapPackage(mmpkFilePath)
-//
-//                mapPackage.load().onSuccess {
-//                    map.value = mapPackage.maps.first()
-//                }.onFailure { error ->
-//                    showError(context, "Failed to load mobile map package: ${error.message}")
-//                }
-//            }
-//        } else {
-//
-//        }
 
         if (checkPermissions(context)) {
             // Permissions are already granted.
