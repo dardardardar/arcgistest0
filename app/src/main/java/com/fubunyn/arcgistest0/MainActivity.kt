@@ -47,6 +47,7 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberBottomSheetScaffoldState
@@ -77,6 +78,8 @@ import androidx.core.text.isDigitsOnly
 import androidx.lifecycle.lifecycleScope
 import com.arcgismaps.ApiKey
 import com.arcgismaps.ArcGISEnvironment
+import com.arcgismaps.geometry.CoordinateFormatter.toLatitudeLongitudeOrNull
+import com.arcgismaps.geometry.LatitudeLongitudeFormat
 import com.arcgismaps.location.LocationDisplayAutoPanMode
 import com.arcgismaps.mapping.ArcGISMap
 import com.arcgismaps.mapping.BasemapStyle
@@ -167,12 +170,13 @@ class MainActivity : ComponentActivity() {
         // Get the path of the mobile map package
         val mmpkFilePath =
             context.getExternalFilesDir(null)?.path + File.separator + stringResource(id = R.string.mahourivieratrails_mmpk)
-        val sheetState = rememberBottomSheetScaffoldState()
-        val scope = rememberCoroutineScope()
+
         val map = remember {
             mutableStateOf(ArcGISMap(getMapStyles()))
         }
-
+        val sheetState = rememberModalBottomSheetState()
+        val scope = rememberCoroutineScope()
+        var showBottomSheet by remember { mutableStateOf(false) }
         if (checkPermissions(context)) {
             // Permissions are already granted.
             LaunchedEffect(Unit) {
@@ -216,7 +220,7 @@ class MainActivity : ComponentActivity() {
             bottomBar = {
                 botappBar(onclick = {
                     scope.launch {
-                        sheetState.bottomSheetState.expand()
+                        showBottomSheet = true
                     }
                 })
             }
@@ -227,9 +231,41 @@ class MainActivity : ComponentActivity() {
                     .fillMaxSize()
                     .padding(it),
                 arcGISMap = map.value,
-                locationDisplay = locationDisplay
+                locationDisplay = locationDisplay,
+                onUp = {
+                    println(
+                        "${
+                            it.mapPoint?.let { it1 ->
+                                toLatitudeLongitudeOrNull(
+                                    point = it1,
+                                    decimalPlaces = 1,
+                                    format = LatitudeLongitudeFormat.DegreesDecimalMinutes
+                                )
+                            }
+                        }"
+                    )
+                }
             )
-
+            if (showBottomSheet) {
+                ModalBottomSheet(
+                    onDismissRequest = {
+                        showBottomSheet = false
+                    },
+                    sheetState = sheetState
+                ) {
+                    ModalContent(state = sheetState, scope = scope)
+                    // Sheet content
+//                    Button(onClick = {
+//                        scope.launch { sheetState.hide() }.invokeOnCompletion {
+//                            if (!sheetState.isVisible) {
+//                                showBottomSheet = false
+//                            }
+//                        }
+//                    }) {
+//                        Text("Hide bottom sheet")
+//                    }
+                }
+            }
 
         }
 
@@ -258,7 +294,7 @@ class MainActivity : ComponentActivity() {
 
 
     @Composable
-    fun ModalContent(state: BottomSheetScaffoldState, scope: CoroutineScope) {
+    fun ModalContent(state: SheetState, scope: CoroutineScope) {
 
         var value by rememberSaveable { mutableIntStateOf(0) }
 
@@ -268,7 +304,12 @@ class MainActivity : ComponentActivity() {
         ) {
             Text(text = "Harvest", fontSize = 24.sp)
             Spacer(Modifier.padding(8.dp))
-            Text(text = "Input quantity of palm oil that has been harvested")
+            Text(
+                text = "Input quantity of palm oil that has been harvested",
+                modifier = Modifier
+                    .padding(24.dp)
+                    .align(Alignment.CenterHorizontally)
+            )
             Spacer(Modifier.padding(8.dp))
             Row {
                 MiniIconButton(
@@ -304,7 +345,7 @@ class MainActivity : ComponentActivity() {
             Button(
                 onClick = {
                     scope.launch {
-                        state.bottomSheetState.hide()
+
                     }
                 },
                 shape = RoundedCornerShape(12.dp)
@@ -315,9 +356,7 @@ class MainActivity : ComponentActivity() {
 
             }
         }
-        if (!state.bottomSheetState.isVisible) {
-            value = 0
-        }
+
     }
 
 
